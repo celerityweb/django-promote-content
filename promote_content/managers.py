@@ -161,6 +161,16 @@ class CuratedQuerySet(QuerySet):
 
         return count
 
+    def reverse(self):
+        """
+        Reverses the ordering of the QuerySet.
+        """
+        if self._is_curated:
+            raise NotImplementedError("Reverse is not implemented on curated querysets")
+        else:
+            return super(CuratedQuerySet, self).reverse()
+
+
 class CurationManager(models.Manager):
     def get_query_set(self):
         return CuratedQuerySet(self.model)
