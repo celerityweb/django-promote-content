@@ -142,6 +142,24 @@ class CuratedQuerySet(QuerySet):
         except self.model.DoesNotExist, e:
             raise IndexError(e.args)
 
+    def count(self):
+        """
+        Performs a SELECT COUNT() and returns the number of records as an
+        integer.
+
+        If the QuerySet is already fully cached this simply returns the length
+        of the cached results set to avoid multiple SELECT COUNT(*) calls.
+        """
+        if self._result_cache is not None and not self._iter:
+            return len(self._result_cache)
+
+        count = self.query.get_count(using=self.db)
+
+        if self._is_curated:
+            curated = self._curated_qs.query.get_count(using=self.db)
+            count += curated
+
+        return count
 
 class CurationManager(models.Manager):
     def get_query_set(self):
