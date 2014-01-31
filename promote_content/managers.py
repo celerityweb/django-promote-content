@@ -73,6 +73,75 @@ class CuratedQuerySet(QuerySet):
         # iterating over the cache.
         return iter(self._result_cache)
 
+    def __getitem__(self, k):
+        """
+        Retrieves an item or slice from the set of results.
+        """
+        if not isinstance(k, (slice, int, long)):
+            raise TypeError
+        assert ((not isinstance(k, slice) and (k >= 0))
+                or (isinstance(k, slice) and (k.start is None or k.start >= 0)
+                    and (k.stop is None or k.stop >= 0))), \
+                "Negative indexing is not supported."
+
+        if self._result_cache is not None:
+            if self._iter is not None:
+                # The result cache has only been partially populated, so we may
+                # need to fill it out a bit more.
+                if isinstance(k, slice):
+                    if k.stop is not None:
+                        # Some people insist on passing in strings here.
+                        bound = int(k.stop)
+                    else:
+                        bound = None
+                else:
+                    bound = k + 1
+                if len(self._result_cache) < bound:
+                    self._fill_cache(bound - len(self._result_cache))
+            return self._result_cache[k]
+
+        if isinstance(k, slice):
+            qs = self._clone()
+            if k.start is not None:
+                start = int(k.start)
+            else:
+                start = None
+            if k.stop is not None:
+                stop = int(k.stop)
+            else:
+                stop = None
+            if qs._is_curated:
+                curated_length = qs._curated_qs.count()
+                if start <= curated_length or start is None:
+                    qs._curated_qs.query.set_limits(start, stop)
+                    start = 0
+                if stop > curated_length or stop is None:
+                    if stop is not None:
+                        stop = stop - curated_length
+                    qs.query.set_limits(start, stop)
+                else:
+                    qs = qs._curated_qs
+            else:
+                qs.query.set_limits(start, stop)
+            return k.step and list(qs)[::k.step] or qs
+        try:
+            qs = self._clone()
+            if qs._is_curated:
+                curated_length = len(qs._curated_qs)
+                if k >= curated_length:
+                    k = k - curated_length
+                    qs.query.set_limits(k, k + 1)
+                    # set false here to prevent the two from being concatenated when calling list(qs)
+                    qs._is_curated = False
+                else:
+                    qs._curated_qs.query.set_limits(k, k + 1)
+                    qs = qs._curated_qs
+            else:
+                qs.query.set_limits(k, k + 1)
+            return list(qs)[0]
+        except self.model.DoesNotExist, e:
+            raise IndexError(e.args)
+
 
 class CurationManager(models.Manager):
     def get_query_set(self):
