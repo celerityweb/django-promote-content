@@ -52,25 +52,15 @@ class CuratedQuerySet(QuerySet):
         """
         Custom method to support curated querysets
         """
-        if self._prefetch_related_lookups and not self._prefetch_done:
-            # We need all the results in order to be able to do the prefetch
-            # in one go. To minimize code duplication, we use the __len__
-            # code path which also forces this, and also does the prefetch
-            len(self)
-
-        if self._result_cache is None:
-            # if this queryset has been curated
-            if self._is_curated:
-                # return an iterator for both curated and non curated querysets
-                self._iter = itertools.chain(super(CuratedQuerySet, self._curated_qs).iterator(), self.iterator())
-            else:
-                self._iter = self.iterator()
+        if self._is_curated and self._result_cache is None:
+            self._iter = itertools.chain(
+                super(CuratedQuerySet, self._curated_qs).iterator(),
+                super(CuratedQuerySet, self).iterator()
+            )
             self._result_cache = []
-        if self._iter:
             return self._result_iter()
-        # Python's list iterator is better than our version when we're just
-        # iterating over the cache.
-        return iter(self._result_cache)
+        else:
+            return super(CuratedQuerySet, self).__iter__()
 
     def __getitem__(self, k):
         """
