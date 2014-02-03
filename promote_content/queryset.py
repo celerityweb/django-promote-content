@@ -39,8 +39,8 @@ class CuratedQuerySet(QuerySet):
             Q(curation__end__gte=now) | Q(curation__end__isnull=True)
         )
 
-        curated.query.clear_ordering()
-        curated.query.add_ordering('-curation__weight')
+        # order by curation weight first, but respect other ordering
+        curated.query.order_by[:0] = ['-curation__weight']
 
         obj._curated_qs = curated
 
