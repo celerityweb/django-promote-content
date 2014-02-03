@@ -241,6 +241,11 @@ class OrderingTests(PromoteContentTestsBase):
             3,
         )
 
+        self.assertEqual(
+            TestContent.objects.all().count(),
+            3,
+        )
+
 
 class CurationStartEndTests(PromoteContentTestsBase):
     def setUp(self):
@@ -315,13 +320,12 @@ class CurationStartEndTests(PromoteContentTestsBase):
 
         self.assertQuerysetEqual(
             TestContent.objects.curated(),
-            TestContent.objects.all()
-            # [
-            #     self.c1.name,
-            #     self.c2.name,
-            #     self.c3.name,
-            # ],
-            # attrgetter("name")
+            [
+                self.c1.name,
+                self.c2.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
         )
 
     def test_future_end(self):

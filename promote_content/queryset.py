@@ -121,16 +121,10 @@ class CuratedQuerySet(QuerySet):
         If the QuerySet is already fully cached this simply returns the length
         of the cached results set to avoid multiple SELECT COUNT(*) calls.
         """
-        if self._result_cache is not None and not self._iter:
-            return len(self._result_cache)
-
-        count = self.query.get_count(using=self.db)
-
         if self._is_curated:
-            curated = self._curated_qs.query.get_count(using=self.db)
-            count += curated
-
-        return count
+            return super(CuratedQuerySet, self._curated_qs).count() + super(CuratedQuerySet, self).count()
+        else:
+            return super(CuratedQuerySet, self).count()
 
     def reverse(self):
         """
