@@ -31,13 +31,13 @@ class CuratedQuerySet(QuerySet):
 
         now = timezone.now()
 
-        obj = self._clone().filter(Q(curation__isnull=True) | Q(curation__start__gt=now) | Q(curation__end__lt=now))
+        obj = self.filter(Q(curation__isnull=True) | Q(curation__start__gt=now) | Q(curation__end__lt=now))
 
-        curated = self._clone()
-        curated = curated.filter(curation__isnull=False)
-
-        curated = curated.filter(Q(curation__start__lte=now) | Q(curation__start__isnull=True))
-        curated = curated.filter(Q(curation__end__gte=now) | Q(curation__end__isnull=True))
+        curated = self.filter(curation__isnull=False).filter(
+            Q(curation__start__lte=now) | Q(curation__start__isnull=True)
+        ).filter(
+            Q(curation__end__gte=now) | Q(curation__end__isnull=True)
+        )
 
         curated.query.clear_ordering()
         curated.query.add_ordering('-curation__weight')
