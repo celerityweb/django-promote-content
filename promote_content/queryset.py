@@ -53,12 +53,10 @@ class CuratedQuerySet(QuerySet):
         Custom method to support curated querysets
         """
         if self._is_curated and self._result_cache is None:
-            self._iter = itertools.chain(
-                super(CuratedQuerySet, self._curated_qs).iterator(),
-                super(CuratedQuerySet, self).iterator()
+            return itertools.chain(
+                super(CuratedQuerySet, self._curated_qs).__iter__(),
+                super(CuratedQuerySet, self).__iter__()
             )
-            self._result_cache = []
-            return self._result_iter()
         else:
             return super(CuratedQuerySet, self).__iter__()
 
@@ -115,11 +113,7 @@ class CuratedQuerySet(QuerySet):
 
     def count(self):
         """
-        Performs a SELECT COUNT() and returns the number of records as an
-        integer.
-
-        If the QuerySet is already fully cached this simply returns the length
-        of the cached results set to avoid multiple SELECT COUNT(*) calls.
+        Return combined count for curated querysets
         """
         if self._is_curated:
             return super(CuratedQuerySet, self._curated_qs).count() + super(CuratedQuerySet, self).count()
