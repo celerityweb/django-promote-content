@@ -246,6 +246,20 @@ class OrderingTests(PromoteContentTestsBase):
             3,
         )
 
+    def test_uncurated_len(self):
+        self.assertEqual(
+            len(TestContent.objects.all()),
+            3
+        )
+
+    def test_curated_len(self):
+        self.c2.curation = self.curate1
+        self.c2.save()
+
+        self.assertEqual(
+            len(TestContent.objects.all()),
+            len(TestContent.objects.curated())
+        )
 
 class CurationStartEndTests(PromoteContentTestsBase):
     def setUp(self):

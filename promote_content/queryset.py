@@ -48,6 +48,11 @@ class CuratedQuerySet(QuerySet):
 
         return uncurated_qs
 
+    def __len__(self):
+        if self._is_curated:
+            return super(CuratedQuerySet, self._curated_qs).__len__() + super(CuratedQuerySet, self).__len__()
+        return super(CuratedQuerySet, self).__len__()
+
     def __iter__(self):
         """
         Custom method to support curated querysets
