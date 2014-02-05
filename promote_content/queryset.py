@@ -40,7 +40,7 @@ class CuratedQuerySet(QuerySet):
         )
 
         # order by curation weight first, but respect other ordering
-        curated.query.order_by[:0] = ['-curation__weight']
+        curated.query.order_by.insert(0, '-curation__weight')
 
         uncurated_qs._curated_qs = curated
 
