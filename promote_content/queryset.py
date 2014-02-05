@@ -31,7 +31,7 @@ class CuratedQuerySet(QuerySet):
 
         now = timezone.now()
 
-        obj = self.filter(Q(curation__isnull=True) | Q(curation__start__gt=now) | Q(curation__end__lt=now))
+        uncurated_qs = self.filter(Q(curation__isnull=True) | Q(curation__start__gt=now) | Q(curation__end__lt=now))
 
         curated = self.filter(curation__isnull=False).filter(
             Q(curation__start__lte=now) | Q(curation__start__isnull=True)
@@ -42,11 +42,11 @@ class CuratedQuerySet(QuerySet):
         # order by curation weight first, but respect other ordering
         curated.query.order_by[:0] = ['-curation__weight']
 
-        obj._curated_qs = curated
+        uncurated_qs._curated_qs = curated
 
-        obj._is_curated = True
+        uncurated_qs._is_curated = True
 
-        return obj
+        return uncurated_qs
 
     def __iter__(self):
         """
