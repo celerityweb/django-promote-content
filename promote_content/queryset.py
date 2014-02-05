@@ -77,35 +77,35 @@ class CuratedQuerySet(QuerySet):
             if isinstance(k, slice):
                 if k.start is not None:
                     start = int(k.start)
-                    non_start = start - curated_length
-                    if non_start < 0:
-                        non_start = 0
+                    uncurated_start = start - curated_length
+                    if uncurated_start < 0:
+                        uncurated_start = 0
                 else:
                     start = None
-                    non_start = None
+                    uncurated_start = None
 
                 if k.stop is not None:
                     stop = int(k.stop)
-                    non_stop = stop - curated_length
+                    uncurated_stop = stop - curated_length
                 else:
                     stop = None
-                    non_stop = None
+                    uncurated_stop = None
 
                 # slice falls completely in curated queryset
                 if stop <= curated_length and stop is not None:
                     return super(CuratedQuerySet, self._curated_qs).__getitem__(k)
 
-                # slice for non curated qs
-                non_k = slice(non_start, non_stop, k.step)
+                # slice for uncurated qs
+                uncurated_k = slice(uncurated_start, uncurated_stop, k.step)
 
-                # slice falls completely in non curated queryset
+                # slice falls completely in uncurated queryset
                 if start >= curated_length:
-                    return super(CuratedQuerySet, qs).__getitem__(non_k)
+                    return super(CuratedQuerySet, qs).__getitem__(uncurated_k)
 
                 # slice spans curated and non-curated querysets
                 return itertools.chain(
                     super(CuratedQuerySet, self._curated_qs).__getitem__(k),
-                    super(CuratedQuerySet, qs).__getitem__(non_k))
+                    super(CuratedQuerySet, qs).__getitem__(uncurated_k))
             else:
                 if k >= curated_length:
                     k = k - curated_length
