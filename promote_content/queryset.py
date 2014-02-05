@@ -39,8 +39,20 @@ class CuratedQuerySet(QuerySet):
             Q(curation__end__gte=now) | Q(curation__end__isnull=True)
         )
 
-        # order by curation weight first, but respect other ordering
-        curated.query.order_by.insert(0, '-curation__weight')
+        # order by curation weight first but respect other ordering
+        # ordering priority taken from django.db.models.sql.compiler.get_ordering
+        if curated.query.extra_order_by:
+            ordering = curated.query.extra_order_by
+        elif not curated.query.default_ordering:
+            ordering = curated.query.order_by
+        else:
+            ordering = (curated.query.order_by
+                        or curated.query.model._meta.ordering
+                        or [])
+
+        ordering.insert(0, '-curation__weight')
+        curated.query.clear_ordering()
+        curated.query.order_by = ordering
 
         uncurated_qs._curated_qs = curated
 
