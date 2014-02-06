@@ -161,13 +161,13 @@ class OrderingTests(PromoteContentTestsBase):
         )
 
     def test_curated_slice(self):
-        self.c1.curation = self.curate1
-        self.c1.save()
+        self.c2.curation = self.curate1
+        self.c2.save()
 
         self.assertQuerysetEqual(
             TestContent.objects.curated()[:1],
             [
-                self.c1.name,
+                self.c2.name,
             ],
             attrgetter("name")
         )
@@ -175,12 +175,91 @@ class OrderingTests(PromoteContentTestsBase):
         self.assertQuerysetEqual(
             TestContent.objects.curated()[1:],
             [
-                self.c2.name,
+                self.c1.name,
                 self.c3.name,
             ],
             attrgetter("name")
         )
 
+        self.assertQuerysetEqual(
+            TestContent.objects.curated()[1:2],
+            [
+                self.c1.name,
+            ],
+            attrgetter("name")
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated()[1:3],
+            [
+                self.c1.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated()[:3],
+            [
+                self.c2.name,
+                self.c1.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated()[0:2],
+            [
+                self.c2.name,
+                self.c1.name,
+            ],
+            attrgetter("name")
+        )
+
+        self.assertEqual(
+            TestContent.objects.curated()[0].name,
+            self.c2.name,
+        )
+
+        self.assertEqual(
+            TestContent.objects.curated()[1].name,
+            self.c1.name,
+        )
+
+        self.assertEqual(
+            TestContent.objects.curated()[2].name,
+            self.c3.name,
+        )
+
+    def test_counts(self):
+        self.c2.curation = self.curate1
+        self.c2.save()
+
+        self.assertEqual(
+            TestContent.objects.curated().count(),
+            3,
+        )
+
+        self.assertEqual(
+            TestContent.objects.all().count(),
+            3,
+        )
+
+    def test_uncurated_len(self):
+        self.assertEqual(
+            len(TestContent.objects.all()),
+            3
+        )
+
+    def test_curated_len(self):
+        self.c2.curation = self.curate1
+        self.c2.save()
+
+        self.assertEqual(
+            len(TestContent.objects.all()),
+            len(TestContent.objects.curated())
+        )
 
 class CurationStartEndTests(PromoteContentTestsBase):
     def setUp(self):
@@ -255,13 +334,12 @@ class CurationStartEndTests(PromoteContentTestsBase):
 
         self.assertQuerysetEqual(
             TestContent.objects.curated(),
-            TestContent.objects.all()
-            # [
-            #     self.c1.name,
-            #     self.c2.name,
-            #     self.c3.name,
-            # ],
-            # attrgetter("name")
+            [
+                self.c1.name,
+                self.c2.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
         )
 
     def test_future_end(self):
