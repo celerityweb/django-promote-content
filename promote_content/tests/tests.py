@@ -7,8 +7,8 @@ from django.db.models import loading
 from django.test import TestCase
 from django.utils import timezone
 
-from .models import TestContent
-from ..models import Curation
+from .models import TestContent, TestContextTarget
+from ..models import Curation, CurationContext
 
 
 class PromoteContentTestsBase(TestCase):
@@ -358,6 +358,362 @@ class CurationStartEndTests(PromoteContentTestsBase):
                 self.c3.name,
                 self.c1.name,
                 self.c2.name,
+            ],
+            attrgetter("name")
+        )
+
+class ContextualCurationOrderingTests(OrderingTests):
+    def setUp(self):
+        super(ContextualCurationOrderingTests, self).setUp()
+
+        self.context1 = TestContextTarget.objects.create(name="Context1")
+        self.context2 = TestContextTarget.objects.create(name="Context2")
+
+        self.curated_context = CurationContext.objects.create(
+            curation=self.curate1,
+            context_object=self.context1,
+            content_object=self.c2
+        )
+
+    def tearDown(self):
+        TestContent.objects.all().delete()
+        Curation.objects.all().delete()
+        TestContextTarget.objects.all().delete()
+
+
+    def test_contextual_ordering_single(self):
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1),
+            [
+                self.c2.name,
+                self.c1.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(),
+            [
+                self.c1.name,
+                self.c2.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_ordering_multiple(self):
+        curated_context2 = CurationContext.objects.create(
+            curation=self.curate2,
+            context_object=self.context1,
+            content_object=self.c3
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1),
+            [
+                self.c3.name,
+                self.c2.name,
+                self.c1.name,
+            ],
+            attrgetter("name")
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(),
+            [
+                self.c1.name,
+                self.c2.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_ordering_with_other_curation(self):
+        self.c3.curation = self.curate2
+        self.c3.save()
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1),
+            [
+                self.c2.name,
+                self.c1.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(),
+            [
+                self.c3.name,
+                self.c1.name,
+                self.c2.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_curated_extra_ordering(self):
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1).order_by('-id'),
+            [
+                self.c2.name,
+                self.c3.name,
+                self.c1.name,
+            ],
+            attrgetter("name")
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1).order_by('id'),
+            [
+                self.c2.name,
+                self.c1.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_filter_curated(self):
+        """
+        Specific filters should apply even to promoted objects
+        Promotion should still apply to promoted objects still included in qs
+        """
+        curated_context2 = CurationContext.objects.create(
+            curation=self.curate2,
+            context_object=self.context1,
+            content_object=self.c3
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.exclude(id=self.c2.id).curated(context=self.context1),
+            [
+                self.c3.name,
+                self.c1.name,
+            ],
+            attrgetter("name")
+        )
+
+        self.assertQuerysetEqual(
+            TestContent.objects.filter(id__lt=3).curated(context=self.context1),
+            [
+                self.c2.name,
+                self.c1.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_slice_curated_only(self):
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1)[:1],
+            [
+                self.c2.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_slice_uncurated_only(self):
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1)[1:],
+            [
+                self.c1.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_slice_partial_uncurated(self):
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1)[1:2],
+            [
+                self.c1.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_slice_uncurated_only_two_index(self):
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1)[1:3],
+            [
+                self.c1.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_slice_combined_two_index(self):
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1)[:3],
+            [
+                self.c2.name,
+                self.c1.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_slice_combined_partial_uncurated(self):
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1)[0:2],
+            [
+                self.c2.name,
+                self.c1.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_index_curated(self):
+        self.assertEqual(
+            TestContent.objects.curated(context=self.context1)[0].name,
+            self.c2.name,
+        )
+
+    def test_contextual_index_uncurated(self):
+        self.assertEqual(
+            TestContent.objects.curated(context=self.context1)[1].name,
+            self.c1.name,
+        )
+
+        self.assertEqual(
+            TestContent.objects.curated(context=self.context1)[2].name,
+            self.c3.name,
+        )
+
+    def test_contextual_slice_mixed_curation(self):
+        """
+        Adding curation directly to an object outside of any context should not
+        affect ordering within a context
+        """
+        self.c3.curation = self.curate2
+        self.c3.save()
+        self.test_contextual_slice_curated_only()
+        self.test_contextual_slice_uncurated_only()
+        self.test_contextual_slice_partial_uncurated()
+        self.test_contextual_slice_uncurated_only_two_index()
+        self.test_contextual_slice_combined_two_index()
+        self.test_contextual_slice_combined_partial_uncurated()
+        self.test_contextual_index_curated()
+        self.test_contextual_index_uncurated()
+
+    def test_contextual_counts(self):
+        self.assertEqual(
+            TestContent.objects.curated(context=self.context1).count(),
+            3,
+        )
+
+        self.assertEqual(
+            TestContent.objects.all().count(),
+            3,
+        )
+
+    def test_contextual_uncurated_len(self):
+        self.assertEqual(
+            len(TestContent.objects.all()),
+            3
+        )
+
+    def test_contextual_curated_len(self):
+        self.assertEqual(
+            len(TestContent.objects.all()),
+            len(TestContent.objects.curated(context=self.context1))
+        )
+
+
+class ContextualCurationStartEndTests(PromoteContentTestsBase):
+    def setUp(self):
+        self.c1 = TestContent.objects.create(
+            name="Test 1"
+        )
+
+        self.c2 = TestContent.objects.create(
+            name="Test 2"
+        )
+
+        self.c3 = TestContent.objects.create(
+            name="Test 3"
+        )
+
+        self.curate1 = Curation.objects.create(weight=1)
+        self.curate2 = Curation.objects.create(weight=2)
+
+        self.context1 = TestContextTarget.objects.create(name="Context1")
+        self.context2 = TestContextTarget.objects.create(name="Context2")
+
+        self.curated_context = CurationContext.objects.create(
+            curation=self.curate1,
+            context_object=self.context1,
+            content_object=self.c2
+        )
+
+    def tearDown(self):
+        TestContent.objects.all().delete()
+        Curation.objects.all().delete()
+        TestContextTarget.objects.all().delete()
+
+    def test_contextual_past_start(self):
+        # set promotion to start yesterday
+        now = timezone.now()
+        yesterday = now - datetime.timedelta(days=1)
+        self.curate1.start = yesterday
+        self.curate1.save()
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1),
+            [
+                self.c2.name,
+                self.c1.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_future_start(self):
+        # set promotion to start tomorrow
+        now = timezone.now()
+        tomorrow = now + datetime.timedelta(days=1)
+        self.curate1.start = tomorrow
+        self.curate1.save()
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1),
+            [
+                self.c1.name,
+                self.c2.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_past_end(self):
+        # set promotion to end yesterday
+        now = timezone.now()
+        yesterday = now - datetime.timedelta(days=1)
+        self.curate1.end = yesterday
+        self.curate1.save()
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1),
+            [
+                self.c1.name,
+                self.c2.name,
+                self.c3.name,
+            ],
+            attrgetter("name")
+        )
+
+    def test_contextual_future_end(self):
+        # set promotion to end tomorrow
+        now = timezone.now()
+        tomorrow = now + datetime.timedelta(days=1)
+        self.curate1.end = tomorrow
+        self.curate1.save()
+
+        self.assertQuerysetEqual(
+            TestContent.objects.curated(context=self.context1),
+            [
+                self.c2.name,
+                self.c1.name,
+                self.c3.name,
             ],
             attrgetter("name")
         )

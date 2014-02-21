@@ -21,3 +21,10 @@ class TestContent(Content):
 
     def __unicode__(self):
         return self.name
+
+
+class TestContextTarget(models.Model):
+    name = models.CharField(max_length=20)
+
+    def __unicode__(self):
+        return self.name
