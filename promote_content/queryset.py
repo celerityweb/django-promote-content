@@ -3,6 +3,7 @@ import itertools
 from django.db.models.query import QuerySet
 from django.db.models import Q
 from django.utils import timezone
+from django.contrib.contenttypes.models import ContentType
 
 
 class CuratedQuerySet(QuerySet):
@@ -13,6 +14,7 @@ class CuratedQuerySet(QuerySet):
     def __init__(self, model=None, query=None, using=None):
         super(CuratedQuerySet, self).__init__(model, query, using)
         self._is_curated = False
+        self._contextual = False
         self._curated_qs = []
 
     def _clone(self, klass=None, setup=False, **kwargs):
@@ -20,9 +22,10 @@ class CuratedQuerySet(QuerySet):
         # persist _is_curated through cloning
         c._is_curated = self._is_curated
         c._curated_qs = self._curated_qs
+        c._contextual = self._contextual
         return c
 
-    def curated(self):
+    def curated(self, context=None):
         """
         Returns a queryset of instances
         """
@@ -31,28 +34,40 @@ class CuratedQuerySet(QuerySet):
 
         now = timezone.now()
 
-        uncurated_qs = self.filter(Q(curation__isnull=True) | Q(curation__start__gt=now) | Q(curation__end__lt=now))
-
-        curated = self.filter(curation__isnull=False).filter(
-            Q(curation__start__lte=now) | Q(curation__start__isnull=True)
-        ).filter(
-            Q(curation__end__gte=now) | Q(curation__end__isnull=True)
-        )
-
-        # order by curation weight first but respect other ordering
-        # ordering priority taken from django.db.models.sql.compiler.get_ordering
-        if curated.query.extra_order_by:
-            ordering = curated.query.extra_order_by
-        elif not curated.query.default_ordering:
-            ordering = curated.query.order_by
+        if context is not None:
+            from .models import CurationContext
+            context_curations = CurationContext.objects.filter(
+                context_type=ContentType.objects.get_for_model(type(context)),
+                context_id=context.id,
+                content_type=ContentType.objects.get_for_model(self.model),
+            ).filter(
+                    content_id__in=[c.id for c in self]
+            ).curated()
+            curated = [c.content() for c in context_curations._curated_qs]
+            uncurated_qs = self.exclude(id__in=[c.id for c in curated])
+            uncurated_qs._contextual = True
         else:
-            ordering = (curated.query.order_by
-                        or curated.query.model._meta.ordering
-                        or [])
+            uncurated_qs = self.filter(Q(curation__isnull=True) | Q(curation__start__gt=now) | Q(curation__end__lt=now))
 
-        ordering.insert(0, '-curation__weight')
-        curated.query.clear_ordering()
-        curated.query.order_by = ordering
+            curated = self.filter(curation__isnull=False).filter(
+                Q(curation__start__lte=now) | Q(curation__start__isnull=True)
+            ).filter(
+                Q(curation__end__gte=now) | Q(curation__end__isnull=True)
+            )
+            # order by curation weight first but respect other ordering
+            # ordering priority taken from django.db.models.sql.compiler.get_ordering
+            if curated.query.extra_order_by:
+                ordering = curated.query.extra_order_by
+            elif not curated.query.default_ordering:
+                ordering = curated.query.order_by
+            else:
+                ordering = (curated.query.order_by
+                            or curated.query.model._meta.ordering
+                            or [])
+
+            ordering.insert(0, '-curation__weight')
+            curated.query.clear_ordering()
+            curated.query.order_by = ordering
 
         uncurated_qs._curated_qs = curated
 
@@ -62,7 +77,10 @@ class CuratedQuerySet(QuerySet):
 
     def __len__(self):
         if self._is_curated:
-            return super(CuratedQuerySet, self._curated_qs).__len__() + super(CuratedQuerySet, self).__len__()
+            if self._contextual:
+                return len(self._curated_qs) + super(CuratedQuerySet, self).__len__()
+            else:
+                return super(CuratedQuerySet, self._curated_qs).__len__() + super(CuratedQuerySet, self).__len__()
         return super(CuratedQuerySet, self).__len__()
 
     def __iter__(self):
@@ -70,10 +88,16 @@ class CuratedQuerySet(QuerySet):
         Custom method to support curated querysets
         """
         if self._is_curated and self._result_cache is None:
-            return itertools.chain(
-                super(CuratedQuerySet, self._curated_qs).__iter__(),
-                super(CuratedQuerySet, self).__iter__()
-            )
+            if self._contextual:
+                return itertools.chain(
+                    self._curated_qs.__iter__(),
+                    super(CuratedQuerySet, self).__iter__()
+                )
+            else:
+                return itertools.chain(
+                    super(CuratedQuerySet, self._curated_qs).__iter__(),
+                    super(CuratedQuerySet, self).__iter__()
+                )
         else:
             return super(CuratedQuerySet, self).__iter__()
 
@@ -108,7 +132,10 @@ class CuratedQuerySet(QuerySet):
 
                 # slice falls completely in curated queryset
                 if stop <= curated_length and stop is not None:
-                    return super(CuratedQuerySet, self._curated_qs).__getitem__(k)
+                    if self._contextual:
+                        return self._curated_qs.__getitem__(k)
+                    else:
+                        return super(CuratedQuerySet, self._curated_qs).__getitem__(k)
 
                 # slice for uncurated qs
                 uncurated_k = slice(uncurated_start, uncurated_stop, k.step)
@@ -118,22 +145,34 @@ class CuratedQuerySet(QuerySet):
                     return super(CuratedQuerySet, qs).__getitem__(uncurated_k)
 
                 # slice spans curated and non-curated querysets
-                return itertools.chain(
-                    super(CuratedQuerySet, self._curated_qs).__getitem__(k),
-                    super(CuratedQuerySet, qs).__getitem__(uncurated_k))
+                if self._contextual:
+                    return itertools.chain(
+                        self._curated_qs.__getitem__(k),
+                        super(CuratedQuerySet, qs).__getitem__(uncurated_k))
+                else:
+                    return itertools.chain(
+                        super(CuratedQuerySet, self._curated_qs).__getitem__(k),
+                        super(CuratedQuerySet, qs).__getitem__(uncurated_k))
             else:
                 if k >= curated_length:
                     k = k - curated_length
-                    return super(CuratedQuerySet, qs).__getitem__(k)
+                    item = super(CuratedQuerySet, qs).__getitem__(k)
                 else:
-                    return super(CuratedQuerySet, self._curated_qs).__getitem__(k)
-
+                    if self._contextual:
+                        item = self._curated_qs.__getitem__(k)
+                    else:
+                        item = super(CuratedQuerySet, self._curated_qs).__getitem__(k)
+                return item
     def count(self):
         """
         Return combined count for curated querysets
         """
         if self._is_curated:
-            return super(CuratedQuerySet, self._curated_qs).count() + super(CuratedQuerySet, self).count()
+            if self._contextual:
+                combined_len = len(self._curated_qs) + super(CuratedQuerySet, self).count()
+            else:
+                combined_len = super(CuratedQuerySet, self._curated_qs).count() + super(CuratedQuerySet, self).count()
+            return combined_len
         else:
             return super(CuratedQuerySet, self).count()
 
