@@ -3,6 +3,9 @@ import itertools
 from django.db.models.query import QuerySet
 from django.db.models import Q
 from django.utils import timezone
+from django.contrib.contenttypes.models import ContentType
+
+from .models import Curation
 
 
 class CuratedQuerySet(QuerySet):
@@ -13,6 +16,7 @@ class CuratedQuerySet(QuerySet):
     def __init__(self, model=None, query=None, using=None):
         super(CuratedQuerySet, self).__init__(model, query, using)
         self._is_curated = False
+        self._is_contextual = False
         self._curated_qs = []
 
     def _clone(self, klass=None, setup=False, **kwargs):
@@ -22,7 +26,13 @@ class CuratedQuerySet(QuerySet):
         c._curated_qs = self._curated_qs
         return c
 
-    def curated(self):
+    def _get_genericrelation_to(self, model, target):
+        gen_rels = model._meta.get_m2m_with_model()
+        for gen_rel in gen_rels:
+            if gen_rel[0].rel.to == target:
+                return gen_rel[0].name
+
+    def curated(self, context=None):
         """
         Returns a queryset of instances
         """
@@ -31,13 +41,42 @@ class CuratedQuerySet(QuerySet):
 
         now = timezone.now()
 
-        uncurated_qs = self.filter(Q(curation__isnull=True) | Q(curation__start__gt=now) | Q(curation__end__lt=now))
+        curation_rel = self._get_genericrelation_to(self.model, Curation)
 
-        curated = self.filter(curation__isnull=False).filter(
-            Q(curation__start__lte=now) | Q(curation__start__isnull=True)
-        ).filter(
-            Q(curation__end__gte=now) | Q(curation__end__isnull=True)
-        )
+        start_lte = {"%s__start__lte" % curation_rel: now}
+        start_null = {"%s__start__isnull" % curation_rel: True}
+        end_gte = {"%s__end__gte" % curation_rel: now}
+        end_null = {"%s__end__isnull" % curation_rel: True}
+
+        start_filter = Q(**start_lte) | Q(**start_null)
+        end_filter = Q(**end_gte) | Q(**end_null)
+
+        curated = self.filter(start_filter, end_filter)
+
+        if context is not None:
+            # only include curation for supplied context
+            context_filter = {
+                "%s__context_type" % curation_rel: ContentType.objects.get_for_model(context),
+                "%s__context_id" % curation_rel: context.id
+            }
+            curated = curated.filter(**context_filter)
+            uncurated_qs = self.filter(
+                ~Q(**context_filter) |
+                ~Q(start_filter) |
+                ~Q(end_filter)
+            )
+        else:
+            # exclude curation that are applied to a particular context
+            no_context_filter = {
+                "%s__context_type__isnull" % curation_rel: False
+            }
+            curated = curated.exclude(**no_context_filter)
+            uncurated_qs = self.filter(
+                ~Q(**{"%s__isnull" % curation_rel: False}) |
+                ~Q(start_filter) |
+                ~Q(end_filter) |
+                Q(**no_context_filter)
+            )
 
         # order by curation weight first but respect other ordering
         # ordering priority taken from django.db.models.sql.compiler.get_ordering
@@ -50,7 +89,7 @@ class CuratedQuerySet(QuerySet):
                         or curated.query.model._meta.ordering
                         or [])
 
-        ordering.insert(0, '-curation__weight')
+        ordering.insert(0, "-%s__weight" % curation_rel)
         curated.query.clear_ordering()
         curated.query.order_by = ordering
 
