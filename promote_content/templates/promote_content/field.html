@@ -1,9 +1,0 @@
-<input{{ final_attrs }} />
-<span id="selected_id_{{ name }}">{{ value }}</span>
-{% if value %}
-  <br />
-  <a href="{{ change_url }}" class="modify_curation" id="edit_id_{{ name }}" onclick="return showCurateModify(this);"> Edit Curation</a> |
-  <a href="{{ delete_url }}" class="modify_curation" id="delete_id_{{ name }}" onclick="return showCurateModify(this);"> Remove Curation</a>
-{% else %}
-   <a href="{{ add_url }}" class="modify_curation" id="add_id_{{ name }}" onclick="return showCurateModify(this);"> Add Curation</a>
-{% endif %}
