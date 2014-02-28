@@ -49,9 +49,6 @@ class OrderingTests(PromoteContentTestsBase):
             name="Test 3"
         )
 
-        # self.curate1 = Curation.objects.create(weight=1)
-        # self.curate2 = Curation.objects.create(weight=2)
-
     def tearDown(self):
         TestContent.objects.all().delete()
         Curation.objects.all().delete()
@@ -82,8 +79,6 @@ class OrderingTests(PromoteContentTestsBase):
     def test_curated_no_ordering(self):
         c = Curation(content_object=self.c3)
         c.save()
-        # self.c3.curation = self.curate1
-        # self.c3.save()
 
         self.assertQuerysetEqual(
             TestContent.objects.curated(),
@@ -98,8 +93,6 @@ class OrderingTests(PromoteContentTestsBase):
     def test_curated_extra_ordering(self):
         c = Curation(content_object=self.c2)
         c.save()
-        # self.c2.curation = self.curate1
-        # self.c2.save()
 
         self.assertQuerysetEqual(
             TestContent.objects.curated().order_by('-id'),
@@ -126,10 +119,6 @@ class OrderingTests(PromoteContentTestsBase):
         c1.save()
         c2 = Curation(content_object=self.c1, weight=1)
         c2.save()
-        # self.c2.curation = self.curate2
-        # self.c2.save()
-        # self.c1.curation = self.curate1
-        # self.c1.save()
 
         self.assertQuerysetEqual(
             TestContent.objects.curated(),
@@ -150,10 +139,6 @@ class OrderingTests(PromoteContentTestsBase):
         c1.save()
         c2 = Curation(content_object=self.c3, weight=2)
         c2.save()
-        # self.c2.curation = self.curate1
-        # self.c2.save()
-        # self.c3.curation = self.curate2
-        # self.c3.save()
 
         self.assertQuerysetEqual(
             TestContent.objects.exclude(id=self.c2.id).curated(),
@@ -176,8 +161,6 @@ class OrderingTests(PromoteContentTestsBase):
     def test_curated_slice(self):
         c = Curation(content_object=self.c2)
         c.save()
-        # self.c2.curation = self.curate1
-        # self.c2.save()
 
         self.assertQuerysetEqual(
             TestContent.objects.curated()[:1],
@@ -250,11 +233,7 @@ class OrderingTests(PromoteContentTestsBase):
     def test_counts(self):
         c = Curation(content_object=self.c2)
         c.save()
-        # self.c2.curation = self.curate1
-        # self.c2.save()
 
-        # print TestContent.objects.curated()
-        # print TestContent.objects.all()
         self.assertEqual(
             TestContent.objects.curated().count(),
             3,
@@ -274,8 +253,6 @@ class OrderingTests(PromoteContentTestsBase):
     def test_curated_len(self):
         c = Curation(content_object=self.c2)
         c.save()
-        # self.c2.curation = self.curate1
-        # self.c2.save()
 
         self.assertEqual(
             len(TestContent.objects.all()),
@@ -296,9 +273,6 @@ class CurationStartEndTests(PromoteContentTestsBase):
             name="Test 3"
         )
 
-        # self.curate1 = Curation.objects.create(weight=1)
-        # self.curate2 = Curation.objects.create(weight=2)
-
     def tearDown(self):
         TestContent.objects.all().delete()
         Curation.objects.all().delete()
@@ -307,11 +281,7 @@ class CurationStartEndTests(PromoteContentTestsBase):
         # set promotion to start yesterday
         now = timezone.now()
         yesterday = now - datetime.timedelta(days=1)
-        # self.curate1.start = yesterday
-        # self.curate1.save()
 
-        # self.c3.curation = self.curate1
-        # self.c3.save()
         c = Curation(content_object=self.c3, start=yesterday)
         c.save()
 
@@ -329,11 +299,7 @@ class CurationStartEndTests(PromoteContentTestsBase):
         # set promotion to start tomorrow
         now = timezone.now() # datetime.datetime.now()
         tomorrow = now + datetime.timedelta(days=1)
-        # self.curate1.start = tomorrow
-        # self.curate1.save()
 
-        # self.c3.curation = self.curate1
-        # self.c3.save()
         c = Curation(content_object=self.c3, start=tomorrow)
         c.save()
 
@@ -351,11 +317,7 @@ class CurationStartEndTests(PromoteContentTestsBase):
         # set promotion to end yesterday
         now = timezone.now()
         yesterday = now - datetime.timedelta(days=1)
-        # self.curate1.end = yesterday
-        # self.curate1.save()
 
-        # self.c3.curation = self.curate1
-        # self.c3.save()
         c = Curation(content_object=self.c3, end=yesterday)
         c.save()
 
@@ -373,11 +335,7 @@ class CurationStartEndTests(PromoteContentTestsBase):
         # set promotion to end tomorrow
         now = timezone.now() # datetime.datetime.now()
         tomorrow = now + datetime.timedelta(days=1)
-        # self.curate1.end = tomorrow
-        # self.curate1.save()
 
-        # self.c3.curation = self.curate1
-        # self.c3.save()
         c = Curation(content_object=self.c3, end=tomorrow)
         c.save()
 
@@ -390,9 +348,6 @@ class CurationStartEndTests(PromoteContentTestsBase):
             ],
             attrgetter("name")
         )
-
-
-
 
 
 class ContextualCurationOrderingTests(PromoteContentTestsBase):
@@ -417,11 +372,6 @@ class ContextualCurationOrderingTests(PromoteContentTestsBase):
             context_object=self.context1,
             content_object=self.c2
         )
-        # self.curated_context = CurationContext.objects.create(
-        #     curation=self.curate1,
-        #     context_object=self.context1,
-        #     content_object=self.c2
-        # )
 
     def tearDown(self):
         TestContent.objects.all().delete()
@@ -452,7 +402,6 @@ class ContextualCurationOrderingTests(PromoteContentTestsBase):
 
     def test_contextual_ordering_multiple(self):
         curated_context2 = Curation.objects.create(
-            # curation=self.curate2,
             weight=2,
             context_object=self.context1,
             content_object=self.c3
@@ -479,8 +428,6 @@ class ContextualCurationOrderingTests(PromoteContentTestsBase):
         )
 
     def test_contextual_ordering_with_other_curation(self):
-        # self.c3.curation = self.curate2
-        # self.c3.save()
         c = Curation.objects.create(
             weight=2,
             content_object=self.c3
@@ -533,7 +480,6 @@ class ContextualCurationOrderingTests(PromoteContentTestsBase):
         Promotion should still apply to promoted objects still included in qs
         """
         curated_context2 = Curation.objects.create(
-            # curation=self.curate2,
             weight=2,
             context_object=self.context1,
             content_object=self.c3
@@ -638,8 +584,6 @@ class ContextualCurationOrderingTests(PromoteContentTestsBase):
         Adding curation directly to an object outside of any context should not
         affect ordering within a context
         """
-        # self.c3.curation = self.curate2
-        # self.c3.save()
         c = Curation.objects.create(
             weight=2,
             content_object=self.c3
@@ -692,14 +636,10 @@ class ContextualCurationStartEndTests(PromoteContentTestsBase):
             name="Test 3"
         )
 
-        # self.curate1 = Curation.objects.create(weight=1)
-        # self.curate2 = Curation.objects.create(weight=2)
-
         self.context1 = TestContextTarget.objects.create(name="Context1")
         self.context2 = TestContextTarget.objects.create(name="Context2")
 
         self.curated_context = Curation.objects.create(
-            # curation=self.curate1,
             weight=1,
             context_object=self.context1,
             content_object=self.c2
@@ -714,8 +654,7 @@ class ContextualCurationStartEndTests(PromoteContentTestsBase):
         # set promotion to start yesterday
         now = timezone.now()
         yesterday = now - datetime.timedelta(days=1)
-        # self.curate1.start = yesterday
-        # self.curate1.save()
+
         self.curated_context.start = yesterday
         self.curated_context.save()
 
@@ -733,8 +672,7 @@ class ContextualCurationStartEndTests(PromoteContentTestsBase):
         # set promotion to start tomorrow
         now = timezone.now()
         tomorrow = now + datetime.timedelta(days=1)
-        # self.curate1.start = tomorrow
-        # self.curate1.save()
+
         self.curated_context.start = tomorrow
         self.curated_context.save()
 
@@ -752,8 +690,7 @@ class ContextualCurationStartEndTests(PromoteContentTestsBase):
         # set promotion to end yesterday
         now = timezone.now()
         yesterday = now - datetime.timedelta(days=1)
-        # self.curate1.end = yesterday
-        # self.curate1.save()
+
         self.curated_context.end = yesterday
         self.curated_context.save()
 
@@ -771,8 +708,7 @@ class ContextualCurationStartEndTests(PromoteContentTestsBase):
         # set promotion to end tomorrow
         now = timezone.now()
         tomorrow = now + datetime.timedelta(days=1)
-        # self.curate1.end = tomorrow
-        # self.curate1.save()
+
         self.curated_context.end = tomorrow
         self.curated_context.save()
 
