@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from .models import Curation
 
-from genericadmin.admin import GenericAdminModelAdmin, GenericTabularInline
+from genericadmin.admin import GenericAdminModelAdmin, GenericTabularInline, GenericStackedInline
 
 
 class CurateAdmin(GenericAdminModelAdmin):
@@ -17,13 +17,29 @@ class CurateAdmin(GenericAdminModelAdmin):
 admin.site.register(Curation, CurateAdmin)
 
 
-class CurateContentInline(GenericTabularInline):
+class CurateContentBase(object):
     model = Curation
     ct_field = 'content_type'
     ct_fk_field = 'content_id'
 
 
-class CurateContextInline(GenericTabularInline):
+class CurateContextBase(object):
     model = Curation
     ct_field = 'context_type'
     ct_fk_field = 'context_id'
+
+
+class CurateContentTabularInline(CurateContentBase, GenericTabularInline):
+    pass
+
+
+class CurateContextTabularInline(CurateContextBase, GenericTabularInline):
+    pass
+
+
+class CurateContentStackedInline(CurateContentBase, GenericStackedInline):
+    pass
+
+
+class CurateContextStackedInline(CurateContextBase, GenericStackedInline):
+    pass
