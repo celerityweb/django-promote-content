@@ -9,6 +9,7 @@ from django.utils.translation import ungettext
 from django.utils.encoding import force_unicode
 from django.http import HttpResponseRedirect
 from django.core.urlresolvers import reverse, resolve
+from django.contrib.admin.templatetags.admin_static import static
 
 from .models import Curation
 
@@ -122,10 +123,13 @@ class CurateAdmin(GenericAdminModelAdmin):
                 formset = CurationFormSet(
                     queryset=Curation.objects.none().order_by('-weight'))
 
+        js = ["inlines.min.js", "calendar.js", "admin/DateTimeShortcuts.js", "collapse.js"]
+        media = self.media + forms.Media(js=[static("admin/js/%s" % path) for path in js])
+
         context = {
             'opts': opts,
             'is_popup': "_popup" in request.REQUEST,
-            'media': self.media,
+            'media': media,
             'title': _('Add %s') % force_unicode(opts.verbose_name_plural),
             'app_label': opts.app_label,
             'formset':formset,
