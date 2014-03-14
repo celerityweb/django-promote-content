@@ -1,3 +1,5 @@
+from urlparse import urlparse
+
 from django.contrib import admin
 from django.conf.urls import patterns, url
 from django.shortcuts import render
@@ -6,6 +8,7 @@ from django.utils.translation import ugettext as _
 from django.utils.translation import ungettext
 from django.utils.encoding import force_unicode
 from django.http import HttpResponseRedirect
+from django.core.urlresolvers import reverse, resolve
 
 from .models import Curation
 
@@ -152,6 +155,14 @@ class CurateAdmin(GenericAdminModelAdmin):
         else:
             form = super(CurateAdmin, self).get_form(request, obj, **kwargs)
         return form
+
+    # hack for supporting multi_context view with formsets
+    def get_generic_field_list(self, request, prefix=''):
+        view, args, kwargs = resolve(urlparse(request.META['HTTP_REFERER'])[2])
+        if view.__name__ == "multi_context":
+            prefix = "form"
+        field_list = super(CurateAdmin, self).get_generic_field_list(request, prefix)
+        return field_list
 
     # hackey fix for overridding/setting content_type_whitelist per request
     def genericadmin_js_init(self, request):
