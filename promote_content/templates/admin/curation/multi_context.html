@@ -1,6 +1,11 @@
 {% extends "admin/change_form.html" %}
 {% load i18n admin_modify adminmedia admin_static %}
 
+
+{% block extrahead %}{{ block.super }}
+{{ formset.media }}
+{% endblock %}
+
 {% if not is_popup %}
 {% block breadcrumbs %}
 <div class="breadcrumbs">
@@ -30,8 +35,10 @@
         <div class="inline-related{% if forloop.last %} empty-form last-related{% endif %}" id="{{ formset.prefix }}-{% if not forloop.last %}{{ forloop.counter0 }}{% else %}empty{% endif %}">
           <h3><b>Curation:</b> <span class="inline_label">#{{ forloop.counter }}</span></h3>
           <fieldset class="module aligned">
-            {{ form.id }}
-            {{ form.as_p }}
+            <table>
+              {{ form.id }}
+              {{ form.as_table }}
+            </table>
           </fieldset>
         </div>
       {% endfor %}

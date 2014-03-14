@@ -10,6 +10,7 @@ from django.utils.encoding import force_unicode
 from django.http import HttpResponseRedirect
 from django.core.urlresolvers import reverse, resolve
 from django.contrib.admin.templatetags.admin_static import static
+from django.contrib.admin.widgets import AdminSplitDateTime
 
 from .models import Curation
 
@@ -19,9 +20,17 @@ from django import forms
 from django.forms.formsets import formset_factory
 from django.forms.models import modelformset_factory, inlineformset_factory
 
+
+class CurateMultiForm(forms.ModelForm):
+    class Meta:
+        model = Curation
+        widgets = {'start': AdminSplitDateTime(), 'end': AdminSplitDateTime()}
+
+
 class CurateAutoContextForm(forms.ModelForm):
     class Meta:
         model = Curation
+        widgets = {'start': AdminSplitDateTime(), 'end': AdminSplitDateTime()}
         exclude = ['context_id', 'context_type', ]
 
 
@@ -86,7 +95,7 @@ class CurateAdmin(GenericAdminModelAdmin):
         if context_id is not None and context_type is not None:
             CurationFormSet = modelformset_factory(Curation, extra=3, can_delete=True, form=CurateAutoContextForm)
         else:
-            CurationFormSet = modelformset_factory(Curation, extra=3, can_delete=True)
+            CurationFormSet = modelformset_factory(Curation, extra=3, can_delete=True, form=CurateMultiForm)
 
         if request.method == "POST":
             formset = CurationFormSet(request.POST, request.FILES)
@@ -123,7 +132,7 @@ class CurateAdmin(GenericAdminModelAdmin):
                 formset = CurationFormSet(
                     queryset=Curation.objects.none().order_by('-weight'))
 
-        js = ["inlines.min.js", "calendar.js", "admin/DateTimeShortcuts.js", "collapse.js"]
+        js = ["inlines.min.js", "collapse.js"]
         media = self.media + forms.Media(js=[static("admin/js/%s" % path) for path in js])
 
         context = {
