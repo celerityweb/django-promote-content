@@ -5,6 +5,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
 from django.utils.translation import ungettext
 from django.utils.encoding import force_unicode
+from django.http import HttpResponseRedirect
 
 from .models import Curation
 
@@ -65,60 +66,73 @@ class CurateAdmin(GenericAdminModelAdmin):
         return super(CurateAdmin, self).add_view(request, form_url, extra_context)
 
     def multi_context(self, request, form_url='', extra_context=None):
-        # TODO handle popup param
-        if request.GET.get('context_id', None) and request.GET.get('context_type', None):
-            context_id = request.session['context_id'] = request.GET['context_id']
-            context_type = request.session['context_type'] = request.GET['context_type']
-        else:
-            context_id = request.session.get('context_id', None)
-            context_type = request.session.get('context_type', None)
+        opts = self.model._meta
+        context_content_type = None
+        context_object = None
 
-        # if these are not set here we should probably raise an error
-        if context_id and context_type:
-            context_content_type = ContentType.objects.get_for_id(context_type)
-            context_object = context_content_type.get_object_for_this_type(pk=context_id)
+        if not self.has_add_permission(request) and self.has_change_permission(request):
+            raise PermissionDenied
 
         if request.GET.get('cts', None):
             request.session['content_type_whitelist'] = (request.GET['cts'])
 
-        if context_id and context_type:
+        context_id = request.GET.get('context_id', None)
+        context_type = request.GET.get('context_type', None)
+
+        if context_id is not None and context_type is not None:
             CurationFormSet = modelformset_factory(Curation, extra=3, can_delete=True, form=CurateAutoContextForm)
         else:
             CurationFormSet = modelformset_factory(Curation, extra=3, can_delete=True)
 
         if request.method == "POST":
-            print request.POST
             formset = CurationFormSet(request.POST, request.FILES)
             if formset.is_valid():
-                instances = formset.save(commit=False)
-                for obj in instances:
-                    obj.context_object = context_object
-                    obj.save()
-                request.session.pop('context_id')
-                request.session.pop('context_type')
-                return self.response_add(request, context_object)
+                commit = True
+
+                context_type = request.POST.get('context_type', None)
+                context_id = request.POST.get('context_id', None)
+                if context_type and context_id:
+                    context_content_type = ContentType.objects.get_for_id(context_type)
+                    context_object = context_content_type.get_object_for_this_type(pk=context_id)
+                    commit = False
+
+                instances = formset.save(commit=commit)
+
+                if not commit:
+                    for obj in instances:
+                        obj.context_object = context_object
+                        obj.save()
+                    return self.response_add(request, context_object)
+                else:
+                    return HttpResponseRedirect(reverse('admin:%s_%s_changelist' %
+                                                        (opts.app_label, opts.module_name),
+                                                        current_app=self.admin_site.name))
         else:
-            formset = CurationFormSet(
-                queryset=Curation.objects.filter(
-                    context_type=context_type, context_id=context_id
-                ).order_by('-weight', 'content_type'))
+            if context_id and context_type:
+                context_content_type = ContentType.objects.get_for_id(context_type)
+                context_object = context_content_type.get_object_for_this_type(pk=context_id)
+                formset = CurationFormSet(
+                    queryset=Curation.objects.filter(
+                        context_type=context_type, context_id=context_id
+                    ).order_by('-weight', 'content_type'))
+            else:
+                formset = CurationFormSet(
+                    queryset=Curation.objects.none().order_by('-weight'))
 
         context = {
-            'opts': self.model._meta,
-
+            'opts': opts,
+            'is_popup': "_popup" in request.REQUEST,
+            'media': self.media,
+            'title': _('Add %s') % force_unicode(opts.verbose_name_plural),
+            'app_label': opts.app_label,
             'formset':formset,
             'context_type': context_type,
             'context_id': context_id,
             'context_content_type': context_content_type,
             'context_object': context_object,
         }
-
-
-        return render(
-            request,
-            "admin/curation/multi_context.html",
-            context,
-        )
+        context.update(extra_context or {})
+        return render(request, "admin/curation/multi_context.html", context)
 
 
     def save_model(self, request, obj, form, change):
