@@ -28,7 +28,9 @@
 {% endif %}
 {{ formset.management_form }}
 {{ formset.non_form_errors }}
-
+{% if is_popup %}
+  <input type="hidden" name="_popup" value="1">
+{% endif %}
     <div class="inline-group" id="{{ formset.prefix }}-group">
       <h2>Curations{% if context_object %} for {{ context_content_type }}: {{ context_object }}{% endif %}</h2>
       {% for form in formset %}
