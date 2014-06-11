@@ -59,7 +59,7 @@ class CuratedQuerySet(QuerySet):
                 "%s__context_type" % curation_rel: ContentType.objects.get_for_model(context),
                 "%s__context_id" % curation_rel: context.id
             }
-            curated = curated.filter(**context_filter)
+            curated = curated.filter(**context_filter).distinct()
             uncurated_qs = self.filter(
                 ~Q(**context_filter) |
                 ~Q(start_filter) |
@@ -70,7 +70,7 @@ class CuratedQuerySet(QuerySet):
             no_context_filter = {
                 "%s__context_type__isnull" % curation_rel: False
             }
-            curated = curated.exclude(**no_context_filter)
+            curated = curated.exclude(**no_context_filter).distinct()
             uncurated_qs = self.filter(
                 ~Q(**{"%s__isnull" % curation_rel: False}) |
                 ~Q(start_filter) |
