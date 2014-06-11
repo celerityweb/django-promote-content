@@ -27,10 +27,10 @@ class CuratedQuerySet(QuerySet):
         return c
 
     def _get_genericrelation_to(self, model, target):
-        gen_rels = model._meta.get_m2m_with_model()
+        gen_rels = model._meta.virtual_fields
         for gen_rel in gen_rels:
-            if gen_rel[0].rel.to == target:
-                return gen_rel[0].name
+            if gen_rel.rel.to == target:
+                return gen_rel.name
 
     def curated(self, context=None):
         """
@@ -90,7 +90,7 @@ class CuratedQuerySet(QuerySet):
                         or [])
 
         ordering.insert(0, "-%s__weight" % curation_rel)
-        curated.query.clear_ordering()
+        curated.query.clear_ordering(True)
         curated.query.order_by = ordering
 
         uncurated_qs._curated_qs = curated
