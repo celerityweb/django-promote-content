@@ -22,3 +22,4 @@ INSTALLED_APPS=('django.contrib.auth',
                 'django.contrib.admin',
                 'promote_content',
 )
+SECRET_KEY = '5-*-_t#&arg*mye1-48hv*c+pqsy6vlk2p=hp*6cezmiihiigh'

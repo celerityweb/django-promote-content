@@ -51,7 +51,9 @@ class CuratedQuerySet(QuerySet):
         start_filter = Q(**start_lte) | Q(**start_null)
         end_filter = Q(**end_gte) | Q(**end_null)
 
-        curated = self.filter(start_filter, end_filter)
+        curated_filter = {"%s__isnull" % curation_rel: False}
+
+        curated = self.filter(start_filter, end_filter).filter(**curated_filter)
 
         if context is not None:
             # only include curation for supplied context
@@ -66,6 +68,8 @@ class CuratedQuerySet(QuerySet):
                 ~Q(end_filter)
             )
         else:
+
+
             # exclude curation that are applied to a particular context
             no_context_filter = {
                 "%s__context_type__isnull" % curation_rel: False
@@ -98,6 +102,9 @@ class CuratedQuerySet(QuerySet):
         uncurated_qs._is_curated = True
 
         return uncurated_qs
+
+    def ordered(self):
+        return super(CuratedQuerySet, self).ordered() or self._is_curated
 
     def __len__(self):
         if self._is_curated:
