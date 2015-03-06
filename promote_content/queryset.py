@@ -51,15 +51,14 @@ class CuratedQuerySet(QuerySet):
         start_filter = Q(**start_lte) | Q(**start_null)
         end_filter = Q(**end_gte) | Q(**end_null)
 
-        curated = self.filter(start_filter, end_filter)
-
         if context is not None:
             # only include curation for supplied context
             context_filter = {
                 "%s__context_type" % curation_rel: ContentType.objects.get_for_model(context),
                 "%s__context_id" % curation_rel: context.id
             }
-            curated = curated.filter(**context_filter).distinct()
+            curated = self.filter(start_filter, end_filter,
+                                     **context_filter).distinct()
             uncurated_qs = self.filter(
                 ~Q(**context_filter) |
                 ~Q(start_filter) |
@@ -68,9 +67,10 @@ class CuratedQuerySet(QuerySet):
         else:
             # exclude curation that are applied to a particular context
             no_context_filter = {
-                "%s__context_type__isnull" % curation_rel: False
+                "%s__context_type__isnull" % curation_rel: True
             }
-            curated = curated.exclude(**no_context_filter).distinct()
+            curated = self.filter(start_filter, end_filter,
+                                     **no_context_filter).distinct()
             uncurated_qs = self.filter(
                 ~Q(**{"%s__isnull" % curation_rel: False}) |
                 ~Q(start_filter) |
